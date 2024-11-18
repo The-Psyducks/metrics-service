@@ -1,29 +1,26 @@
 # Build stage
-FROM python:3.11-alpine AS builder
+FROM golang:1.23.0-alpine3.20 AS builder
 
 WORKDIR /home/app
 
-# Copiar dependencias
-COPY /server/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY /server/go.mod /server/go.sum ./
+RUN go mod download
 
-# Copiar el código fuente
 COPY /server ./
 
-# Test stage (opcional)
-# FROM builder AS python-test-stage
-# RUN pip install pytest
-# CMD ["pytest", "--cov=.", "tests/"]
+RUN go build -o twitsnap ./main.go
+
+# # Test stage
+# FROM builder AS twitsnap-test-stage
+
+# # CMD ["go", "test", "-v", "./tests"]
+# CMD ["go", "test", "-cover", "-coverprofile=coverage/coverage.out", ".", "./...", "-v"]
 
 # Run stage
-FROM python:3.11-alpine
+FROM alpine:3.20
 
 WORKDIR /home/app
 
-# Copiar la instalación y código desde el builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-COPY --from=builder /home/app ./
+COPY --from=builder /home/app/twitsnap ./
 
-# Comando de entrada para ejecutar el servidor
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["./twitsnap"]
