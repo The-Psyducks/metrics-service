@@ -1,17 +1,15 @@
 import pika, os, signal, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-def signal_handler(signal, frame):
-    sys.exit(0)
-
-signal.signal(signal.SIGINT, signal_handler)
-
 # Access the CLODUAMQP_URL environment variable and parse it (fallback to localhost)
-url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost:5672/%2f')
+print("Connecting to CloudAMQP...")
+url = os.environ.get('CLOUDAMQP_URL', 'amqp://admin:admin123@rabbitmq:5672/%2f')
 params = pika.URLParameters(url)
 connection = pika.BlockingConnection(params)
+print("creating channel...")
 channel = connection.channel() # start a channel
 channel.queue_declare(queue='hello') # Declare a queue
+print("publishing...")
 channel.basic_publish(exchange='',
                   routing_key='hello',
                   body='Hello CloudAMQP!')
@@ -21,13 +19,17 @@ print(" [x] Sent 'Hello World!'")
 def callback(ch, method, properties, body):
   print(" [x] Received " + str(body))
 
+print(' [*] Waiting for messages:')
 channel.basic_consume('hello',
                       callback,
                       auto_ack=True)
 
 print(' [*] Waiting for messages:')
-channel.start_consuming()
+# channel.start_consuming()
+# channel.consume('hello', callback, auto_ack=True)
 connection.close()
+
+print("Holaaaa")
 
 # HTTP server
 class RequestHandler(BaseHTTPRequestHandler):
