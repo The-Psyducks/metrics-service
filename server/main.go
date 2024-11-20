@@ -7,11 +7,15 @@ import (
 
 func main() {
 	// Start the server
-	rabbit, _ := router.NewRabbitRouter()
+	rabbit, err := router.NewRabbitRouter()
+	if err != nil {
+		fmt.Println("Error creating rabbit router: ", err)
+		return
+	}
 	rabbit.Run()
 
 	fmt.Println("Creating web router")
-	asciiArt := `⊂_ヽ
+	happyJuanma := `⊂_ヽ
 　 ＼＼
 　　 ＼( ͡° ͜ʖ ͡°)
 　　　 >　⌒ヽ
@@ -27,14 +31,14 @@ func main() {
 ノ )　　Lﾉ
 (_／`
 
-	fmt.Println(asciiArt)
-	router, err := router.CreateRouter()
+	fmt.Println(happyJuanma)
+	webRouter, err := router.CreateRouter()
 	if err != nil {
 		fmt.Println("Error creating router: ", err)
 		return
 	}
 
-	if err := router.Run(); err != nil {
+	if err := webRouter.Run(); err != nil {
 		fmt.Println("Error starting router: ", err)
 		return
 	}

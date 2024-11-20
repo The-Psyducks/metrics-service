@@ -32,6 +32,11 @@ func NewRabbitRouter() (*AmpqRouter, error) {
 		return nil, err
 	}
 
+	_, err = channel.QueueDeclare(queueName, true, false, false, false, nil)
+	if err != nil {
+		panic(err)
+	}
+
 	messagesChan, err := channel.Consume(queueName, "", true, false, false, false, nil)
 	if err != nil {
 		return nil, err
