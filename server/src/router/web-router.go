@@ -7,6 +7,7 @@ import (
 	sqlx "github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/the-psyducks/metrics-service/src/config"
+	"github.com/the-psyducks/metrics-service/src/controller"
 	middleware "github.com/the-psyducks/metrics-service/src/middlewares"
 	"github.com/the-psyducks/metrics-service/src/repository"
 	"io"
@@ -119,19 +120,25 @@ func CreateRouter() (*Router, error) {
 	r := createRouterFromConfig(cfg)
 
 	metricsDb, err := createDatabases(cfg)
+
 	if err != nil {
 		slog.Error("failed to create databases", slog.String("error", err.Error()))
 		return nil, err
 	}
 
+	controller.NewWebController(metricsDb)
+
 	r.Engine.Use(middleware.RequestLogger())
 	r.Engine.Use(middleware.ErrorHandler())
 
 	addCorsConfiguration(r)
+	r.Engine.GET("/health-check", controller.HealthCheck)
 
 	private := r.Engine.Group("/")
 	private.Use(middleware.AuthMiddleware())
 	{
+
+		private.GET("/metrics", controller.GetMetrics)
 	}
 
 	return r, nil
