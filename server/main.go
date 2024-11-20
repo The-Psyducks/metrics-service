@@ -7,8 +7,10 @@ import (
 
 func main() {
 	// Start the server
-	//rabbit := router.NewRabbit()
-	fmt.Println("Creating router")
+	rabbit, _ := router.NewRabbitRouter()
+	rabbit.Run()
+
+	fmt.Println("Creating web router")
 	asciiArt := `⊂_ヽ
 　 ＼＼
 　　 ＼( ͡° ͜ʖ ͡°)

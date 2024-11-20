@@ -137,7 +137,6 @@ func CreateRouter() (*Router, error) {
 	private := r.Engine.Group("/")
 	private.Use(middleware.AuthMiddleware())
 	{
-
 		private.GET("/metrics", controller.GetMetrics)
 	}
 
