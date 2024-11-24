@@ -20,8 +20,8 @@ func (r *AmpqRouter) Run() {
 }
 
 func NewRabbitRouter() (*AmpqRouter, error) {
-	queueName := os.Getenv("RABBIT_QUEUE")
-	queueUrl := os.Getenv("RABBIT_URL")
+	queueName := os.Getenv("CLOUDAMQP_QUEUE")
+	queueUrl := os.Getenv("CLOUDAMQP_URL")
 	conn, err := amqp.Dial(queueUrl)
 	if err != nil {
 		return nil, err
