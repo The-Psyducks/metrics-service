@@ -1,10 +1,12 @@
 package router
 
 import (
-	amqp "github.com/rabbitmq/amqp091-go"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type AmpqRouter struct {
@@ -22,6 +24,7 @@ func (r *AmpqRouter) Run() {
 func NewRabbitRouter() (*AmpqRouter, error) {
 	queueName := os.Getenv("CLOUDAMQP_QUEUE")
 	queueUrl := os.Getenv("CLOUDAMQP_URL")
+	fmt.Println("dialing: ", queueUrl)
 	conn, err := amqp.Dial(queueUrl)
 	if err != nil {
 		return nil, err
@@ -32,16 +35,19 @@ func NewRabbitRouter() (*AmpqRouter, error) {
 		return nil, err
 	}
 
+	fmt.Println("declaring queue: ", queueName)
 	_, err = channel.QueueDeclare(queueName, true, false, false, false, nil)
 	if err != nil {
 		panic(err)
 	}
-
+	
+	fmt.Println("consuming queue: ", queueName)
 	messagesChan, err := channel.Consume(queueName, "", true, false, false, false, nil)
 	if err != nil {
 		return nil, err
 	}
-
+	
+	fmt.Println("consumed")
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
