@@ -3,9 +3,6 @@ package router
 import (
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -48,8 +45,6 @@ func NewRabbitRouter() (*AmpqRouter, error) {
 	}
 	
 	fmt.Println("consumed")
-	sigchan := make(chan os.Signal, 1)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 
 	return &AmpqRouter{messagesChan: messagesChan}, nil
 }
