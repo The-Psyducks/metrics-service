@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	sqlx "github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/the-psyducks/metrics-service/src/config"
 	"github.com/the-psyducks/metrics-service/src/controller"
@@ -13,7 +12,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"testing"
 )
 
 // Router is a wrapper for the gin.Engine and the address where it is running
@@ -43,65 +41,6 @@ func createRouterFromConfig(cfg *config.Config) *Router {
 
 // Creates a new database connection using the configuration provided in the env file
 
-func createDBConnection(cfg *config.Config) (*sqlx.DB, error) {
-	var db *sqlx.DB
-	var err error
-
-	if testing.Testing() {
-		dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-			cfg.DatabaseUser,
-			cfg.DatabasePassword,
-			cfg.DatabaseHost,
-			cfg.DatabasePort,
-			cfg.DatabaseName)
-
-		db, err = sqlx.Connect("postgres", dsn)
-	} else {
-		switch cfg.Environment {
-		case "HEROKU":
-			fallthrough
-		case "production":
-			db, err = sqlx.Connect("postgres", os.Getenv("DATABASE_URL"))
-		case "development":
-			fallthrough
-		case "testing":
-			dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-				cfg.DatabaseUser,
-				cfg.DatabasePassword,
-				cfg.DatabaseHost,
-				cfg.DatabasePort,
-				cfg.DatabaseName)
-
-			db, err = sqlx.Connect("postgres", dsn)
-		default:
-			return nil, fmt.Errorf("invalid environment: %s", cfg.Environment)
-		}
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	enableUUIDExtension := `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`
-	if _, err := db.Exec(enableUUIDExtension); err != nil {
-		return nil, fmt.Errorf("failed to enable uuid extension: %w", err)
-	}
-
-	return db, nil
-}
-
-func createDatabases(cfg *config.Config) (*repository.MetricsPostgresDB, error) {
-	conn, err := createDBConnection(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user database connection: %w", err)
-	}
-	db, err := repository.CreateMetricsPostgresDB(conn)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
 func addCorsConfiguration(r *Router) {
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
@@ -119,25 +58,25 @@ func CreateRouter() (*Router, error) {
 	}
 	r := createRouterFromConfig(cfg)
 
-	metricsDb, err := createDatabases(cfg)
+	metricsDb, err := repository.CreateMetricsDatabases(cfg)
 
 	if err != nil {
 		slog.Error("failed to create databases", slog.String("error", err.Error()))
 		return nil, err
 	}
 
-	controller.NewWebController(metricsDb)
+	webController := controller.NewWebController(metricsDb)
 
 	r.Engine.Use(middleware.RequestLogger())
 	r.Engine.Use(middleware.ErrorHandler())
 
 	addCorsConfiguration(r)
-	r.Engine.GET("/health-check", controller.HealthCheck)
+	r.Engine.GET("/health-check", webController.HealthCheck)
 
 	private := r.Engine.Group("/")
 	private.Use(middleware.AuthMiddleware())
 	{
-		private.GET("/metrics", controller.GetMetrics)
+		private.GET("/metrics/login", webController.GetLoginMetrics)
 	}
 
 	return r, nil
