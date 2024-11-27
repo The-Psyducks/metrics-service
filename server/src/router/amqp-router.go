@@ -22,6 +22,8 @@ const LoginAttemptType = "LOGIN_ATTEMPT"
 type AmpqRouter struct {
 	messagesChan   <-chan amqp.Delivery
 	metricsService *service.MetricsService
+	AmqpChannel	*amqp.Channel
+	AmqpConn	*amqp.Connection
 }
 
 func NewRabbitRouter() (*AmpqRouter, error) {
@@ -64,6 +66,8 @@ func NewRabbitRouter() (*AmpqRouter, error) {
 	return &AmpqRouter{
 		messagesChan:   messagesChan,
 		metricsService: metricsService,
+		AmqpChannel: channel,
+		AmqpConn: conn,
 	}, nil
 }
 
@@ -99,3 +103,4 @@ func (r *AmpqRouter) Run() {
 		}
 	}()
 }
+
