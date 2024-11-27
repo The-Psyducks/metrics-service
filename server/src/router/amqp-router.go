@@ -25,13 +25,13 @@ type AmpqRouter struct {
 }
 
 func NewRabbitRouter() (*AmpqRouter, error) {
+	queueName := os.Getenv("CLOUDAMQP_QUEUE")
+	queueUrl := os.Getenv("CLOUDAMQP_URL")
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	queueName := os.Getenv("RABBIT_QUEUE")
-	queueUrl := os.Getenv("RABBIT_URL")
 	conn, err := amqp.Dial(queueUrl)
 	if err != nil {
 		return nil, err
