@@ -13,6 +13,10 @@ type MetricsService struct {
 	database *repository.MetricsPostgresDB
 }
 
+func NewMetricsService(db *repository.MetricsPostgresDB) *MetricsService {
+	return &MetricsService{db}
+}
+
 func (s MetricsService) RecordLoginAttempt(loginAttempt models.LoginAttempt) *app_errors.AppError {
 	err := s.database.RegisterLoginAttempt(loginAttempt)
 	if err != nil {
@@ -35,6 +39,19 @@ func (s MetricsService) GetLoginMetrics(isAdmin bool) (*models.LoginSummaryMetri
 	return metrics, nil
 }
 
-func NewMetricsService(db *repository.MetricsPostgresDB) *MetricsService {
-	return &MetricsService{db}
+func (s MetricsService) RecordUserBlocked(message models.UserBlocked) *app_errors.AppError {
+	panic("implement me")
+}
+
+func (s MetricsService) RecordUserUnblocked(message models.UserUnblocked) *app_errors.AppError {
+	panic("implement me")
+
+}
+
+func (s MetricsService) RecordNewRegistry(message models.NewRegistry) *app_errors.AppError {
+	panic("implement me")
+}
+
+func (s MetricsService) RecordNewUser(message models.NewUser) *app_errors.AppError {
+	panic("implement me")
 }
