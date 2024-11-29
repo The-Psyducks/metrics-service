@@ -113,10 +113,10 @@ func CreateMetricsDatabases(cfg *config.Config) (*MetricsPostgresDB, error) {
 func (db *MetricsPostgresDB) RegisterLoginAttempt(loginAttempt models.LoginAttempt) error {
 	query := `
 		INSERT INTO login_metrics (user_id, login_time, succesfull, identity_provider)
-		VALUES ($1, NOW(), $2, $3)
+		VALUES ($1, $2, $3, $4)
 	`
 
-	_, err := db.db.Exec(query, loginAttempt.UserId, loginAttempt.WasSuccessful, loginAttempt.Provider)
+	_, err := db.db.Exec(query, loginAttempt.UserId, loginAttempt.Timestamp, loginAttempt.WasSuccessful, loginAttempt.Provider)
 
 	if err != nil {
 		return fmt.Errorf("failed to register login: %w", err)
