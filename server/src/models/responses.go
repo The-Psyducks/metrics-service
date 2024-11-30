@@ -12,3 +12,12 @@ type LoginSummaryMetrics struct {
 	MethodDistribution MethodDistribution `json:"method_distribution"`
 	FederatedProviders map[string]int     `json:"federated_providers" db:"federated_providers"`
 }
+
+type RegistrationSummaryMetrics struct {
+	TotalRegistrations        int                `json:"total_registrations" db:"total_registrations"`
+	SuccessfulRegistrations   int                `json:"successful_registrations" db:"succesfull_registrations"`
+	FailedRegistrations       int                `json:"failed_registrations" db:"failed_registrations"`
+	AverageRegistrationTimeMs float64            `json:"average_registration_time" db:"average_registration_time"`
+	MethodDistribution        MethodDistribution `json:"method_distribution"`
+	FederatedProviders        map[string]int     `json:"federated_providers" db:"federated_providers"`
+}

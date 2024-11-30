@@ -50,7 +50,8 @@ type QueueNewUser struct {
 	Message NewUser
 }
 type NewUser struct {
-	UserId    string `json:"user_id"`
-	Location  string `json:"location"`
-	TimeStamp string `json:"timestamp"`
+	UserId         string `json:"user_id"`
+	Location       string `json:"location"`
+	TimeStamp      string `json:"timestamp"`
+	RegistrationId string `json:"registration_id"`
 }
