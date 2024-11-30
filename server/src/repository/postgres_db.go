@@ -34,7 +34,7 @@ func CreateMetricsPostgresDB(db *sqlx.DB) (*MetricsPostgresDB, error) {
 func createTables(db *sqlx.DB) error {
 
 	schemaLoginMetrics := `
-		--DROP TABLE IF EXISTS login_metrics;
+		
 
 		CREATE TABLE IF NOT EXISTS login_metrics (
 			user_id UUID NOT NULL,
@@ -46,9 +46,9 @@ func createTables(db *sqlx.DB) error {
 		`
 
 	schemaUsersBlocked := `
-		--DROP TABLE IF EXISTS users_blocks;
+		
 
-		CREATE TABLE IF NOT EXISTS users_blocks (
+		CREATE TABLE IF NOT EXISTS metrics_users_blocks (
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 			user_id UUID NOT NULL,
 			reason TEXT DEFAULT NULL,
@@ -59,9 +59,9 @@ func createTables(db *sqlx.DB) error {
 		`
 
 	schemaRegistries := `
-		--DROP TABLE IF EXISTS registries;
+		
 
-		CREATE TABLE IF NOT EXISTS registries (
+		CREATE TABLE IF NOT EXISTS metrics_registries (
 			registration_id VARCHAR(255) PRIMARY KEY,
 			created_at TIMESTAMPTZ,
 			deleted_at TIMESTAMPTZ default NULL,			
@@ -70,8 +70,8 @@ func createTables(db *sqlx.DB) error {
 			);
 		`
 
-	schemaUsers := `--DROP TABLE IF EXISTS users;
-					CREATE TABLE IF NOT EXISTS users (
+	schemaUsers := `
+					CREATE TABLE IF NOT EXISTS metrics_locations (
 					    						user_id UUID PRIMARY KEY,
 					    						location VARCHAR(255),
 					    						created_at TIMESTAMPTZ)`
@@ -154,7 +154,7 @@ func CreateMetricsDatabases(cfg *config.Config) (*MetricsPostgresDB, error) {
 
 func (db *MetricsPostgresDB) RegisterLoginAttempt(loginAttempt models.LoginAttempt) error {
 	query := `
-		INSERT INTO login_metrics (user_id, login_time, succesfull, identity_provider)
+		INSERT INTO metrics_login_metrics (user_id, login_time, succesfull, identity_provider)
 		VALUES ($1, $2, $3, $4)
 	`
 	timestamp, err := time.Parse(time.RFC3339, loginAttempt.Timestamp)
@@ -172,7 +172,7 @@ func (db *MetricsPostgresDB) RegisterLoginAttempt(loginAttempt models.LoginAttem
 }
 
 func (db *MetricsPostgresDB) RegisterUserBlocked(userBlocked models.UserBlocked) error {
-	query := `INSERT INTO users_blocks (user_id, blocked_at, reason) VALUES ($1, $2, $3)`
+	query := `INSERT INTO metrics_users_blocks (user_id, blocked_at, reason) VALUES ($1, $2, $3)`
 	_, err := db.db.Exec(query, userBlocked.UserId, userBlocked.Timestamp, userBlocked.Reason)
 	if err != nil {
 		return fmt.Errorf("error blocking user: %w", err)
@@ -181,7 +181,7 @@ func (db *MetricsPostgresDB) RegisterUserBlocked(userBlocked models.UserBlocked)
 }
 
 func (db *MetricsPostgresDB) RegisterUserUnblocked(userUnblocked models.UserUnblocked) error {
-	query := `UPDATE users_blocks SET unblocked_at = $1 
+	query := `UPDATE metrics_users_blocks SET unblocked_at = $1 
               WHERE user_id = $2 AND unblocked_at IS NULL`
 	_, err := db.db.Exec(query, userUnblocked.Timestamp, userUnblocked.UserId)
 	if err != nil {
@@ -192,7 +192,7 @@ func (db *MetricsPostgresDB) RegisterUserUnblocked(userUnblocked models.UserUnbl
 
 func (db *MetricsPostgresDB) RegisterNewRegistry(registry models.NewRegistry) error {
 
-	_, err := db.db.Exec("INSERT INTO registries (registration_id, created_at, identity_provider) VALUES ($1, $2, $3)", registry.RegistrationId, registry.TimeStamp, registry.Provider)
+	_, err := db.db.Exec("INSERT INTO metrics_registries (registration_id, created_at, identity_provider) VALUES ($1, $2, $3)", registry.RegistrationId, registry.TimeStamp, registry.Provider)
 	if err != nil {
 		return fmt.Errorf("failed to create registry entry: %w", err)
 	}
@@ -200,7 +200,7 @@ func (db *MetricsPostgresDB) RegisterNewRegistry(registry models.NewRegistry) er
 }
 
 func (db *MetricsPostgresDB) RegisterNewUser(newUser models.NewUser) error {
-	query := `UPDATE registries SET deleted_at  = $1
+	query := `UPDATE metrics_registries SET deleted_at  = $1
 							  WHERE registration_id = $2`
 
 	_, err := db.db.Exec(query, newUser.TimeStamp, newUser.RegistrationId)
@@ -208,7 +208,7 @@ func (db *MetricsPostgresDB) RegisterNewUser(newUser models.NewUser) error {
 		return fmt.Errorf("failed to create registry entry: %w", err)
 	}
 
-	query = `INSERT INTO users (user_id, location, created_at)
+	query = `INSERT INTO metrics_locations (user_id, location, created_at)
     			 VALUES ($1, $2, $3)`
 
 	_, err = db.db.Exec(query, newUser.UserId, newUser.Location, newUser.TimeStamp)
@@ -272,7 +272,7 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 				COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END), 0) as succesfull_registrations,
 				COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN 0 ELSE 1 END), 0) as failed_registrations,
 				COALESCE(AVG(EXTRACT(EPOCH FROM (deleted_at - created_at))), 0) as average_registration_time
-			FROM registries
+			FROM metrics_registries
 	`
 	err := db.db.Get(&metrics, query)
 	if err != nil {
@@ -282,7 +282,7 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 	query = `SELECT
 				COALESCE(SUM(CASE WHEN identity_provider = 'INTERNAL' THEN 1 ELSE 0 END), 0) AS email,
 				COALESCE(SUM(CASE WHEN identity_provider = 'GOOGLE' THEN 1 ELSE 0 END), 0) AS federated
-			FROM registries
+			FROM metrics_registries
 	`
 	err = db.db.Get(&metrics.MethodDistribution, query)
 	if err != nil {
@@ -295,7 +295,7 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 	}
 	query = `
 		SELECT identity_provider, COUNT(*) AS amount
-		FROM registries
+		FROM metrics_registries
 		WHERE identity_provider = 'GOOGLE'
 		GROUP BY identity_provider
 	`
@@ -316,7 +316,7 @@ func (db *MetricsPostgresDB) GetLocationMetrics() (*models.LocationMetrics, erro
 	var locationMetrics models.LocationMetrics
 	query := `
 		SELECT location AS country, COUNT(*) AS amount
-		FROM users
+		FROM metrics_locations
 		GROUP BY location
 	`
 
@@ -334,7 +334,7 @@ func (db *MetricsPostgresDB) GetBlockedMetrics() (*models.UsersBlockedMetrics, e
             COUNT(*) AS total_users_blocked,
             COALESCE(SUM(CASE WHEN unblocked_at IS NULL THEN 1 ELSE 0 END), 0) AS currently_blocked,
             COALESCE(AVG(EXTRACT(EPOCH FROM unblocked_at - blocked_at) / 86400), 0) AS average_block_time_in_days
-        FROM users_blocks
+        FROM metrics_users_blocks
     `
 
 	if err := db.db.Get(&usersBlockedMetrics, query); err != nil {
@@ -342,7 +342,7 @@ func (db *MetricsPostgresDB) GetBlockedMetrics() (*models.UsersBlockedMetrics, e
 	}
 
 	var reasons pq.StringArray
-	query = `SELECT ARRAY(SELECT DISTINCT reason FROM users_blocks WHERE reason IS NOT NULL)`
+	query = `SELECT ARRAY(SELECT DISTINCT reason FROM metrics_users_blocks WHERE reason IS NOT NULL)`
 
 	if err := db.db.Get(&reasons, query); err != nil {
 		return nil, fmt.Errorf("error getting reasons: %w", err)
