@@ -40,7 +40,6 @@ func createTables(db *sqlx.DB) error {
 			succesfull BOOLEAN NOT NULL,
 			identity_provider VARCHAR(255) DEFAULT NULL,
 			PRIMARY KEY (user_id, login_time)
-			
 			);
 		`
 
@@ -53,7 +52,7 @@ func createTables(db *sqlx.DB) error {
 			reason TEXT DEFAULT NULL,
 			blocked_at VARCHAR(255),
 			unblocked_at VARCHAR(255) DEFAULT NULL,
-			CONSTRAINT users_blocks_unique_block UNIQUE (user_id, blocked_at),
+			CONSTRAINT users_blocks_unique_block UNIQUE (user_id, blocked_at)
 			);
 		`
 
@@ -64,20 +63,29 @@ func createTables(db *sqlx.DB) error {
 			registration_id VARCHAR(255) PRIMARY KEY,
 			created_at VARCHAR(255),
 			deleted_at VARCHAR(255) default NULL,			
-			identity_provider VARCHAR(255) DEFAULT NULL,
+			identity_provider VARCHAR(255) DEFAULT NULL
 			
 			);
 		`
 
+	schemaUsers := `DROP TABLE IF EXISTS users
+					CREATE TABLE IF NOT EXISTS users (
+					    						user_id UUID PRIMARY KEY,
+					    						location VARCHAR(255),
+					    						created_at VARCHAR(255)`
+
 	if _, err := db.Exec(schemaLoginMetrics); err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
+		return fmt.Errorf("failed to create logins table: %w", err)
 	}
 	if _, err := db.Exec(schemaUsersBlocked); err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
+		return fmt.Errorf("failed to create blocks table: %w", err)
+	}
+	if _, err := db.Exec(schemaRegistries); err != nil {
+		return fmt.Errorf("failed to create registries table: %w", err)
 	}
 
-	if _, err := db.Exec(schemaRegistries); err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
+	if _, err := db.Exec(schemaUsers); err != nil {
+		return fmt.Errorf("failed to create users table: %w", err)
 	}
 
 	return nil
@@ -178,7 +186,7 @@ func (db *MetricsPostgresDB) RegisterUserUnblocked(userUnblocked models.UserUnbl
 
 func (db *MetricsPostgresDB) RegisterNewRegistry(registry models.NewRegistry) error {
 
-	_, err := db.db.Exec("INSERT INTO registry_entries (registration_id, created_at, identity_provider) VALUES ($1, $2, $3)", registry.RegistrationId, registry.TimeStamp, registry.Provider)
+	_, err := db.db.Exec("INSERT INTO registries (registration_id, created_at, identity_provider) VALUES ($1, $2, $3)", registry.RegistrationId, registry.TimeStamp, registry.Provider)
 	if err != nil {
 		return fmt.Errorf("failed to create registry entry: %w", err)
 	}
@@ -186,8 +194,12 @@ func (db *MetricsPostgresDB) RegisterNewRegistry(registry models.NewRegistry) er
 }
 
 func (db *MetricsPostgresDB) RegisterNewUser(newUser models.NewUser) error {
-	query := `UPDATE registry_entries SET deleted_at  = $1
+	query := `UPDATE registries SET deleted_at  = $1
 							  WHERE registration_id = $2`
+
+	query = `INSERT INTO users (user_id, location, created_at)
+    			 VALUES ($1, $2, $3)`
+
 	_, err := db.db.Exec(query, newUser.TimeStamp, newUser.RegistrationId, newUser)
 	if err != nil {
 		return fmt.Errorf("failed to create registry entry: %w", err)
@@ -249,7 +261,7 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 				COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END), 0) as succesfull_registrations,
 				COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN 0 ELSE 1 END), 0) as failed_registrations,
 				COALESCE(AVG(EXTRACT(EPOCH FROM (deleted_at - created_at))), 0) as average_registration_time
-			FROM registry_entries
+			FROM registries
 	`
 	err := db.db.Get(&metrics, query)
 	if err != nil {
@@ -257,9 +269,9 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 	}
 
 	query = `SELECT
-				COALESCE(SUM(CASE WHEN identity_provider IS NULL THEN 1 ELSE 0 END), 0) AS email,
-				COALESCE(SUM(CASE WHEN identity_provider IS NOT NULL THEN 1 ELSE 0 END), 0) AS federated
-			FROM registry_entries
+				COALESCE(SUM(CASE WHEN identity_provider = 'INTERNAL' THEN 1 ELSE 0 END), 0) AS email,
+				COALESCE(SUM(CASE WHEN identity_provider = 'GOOGLE' THEN 1 ELSE 0 END), 0) AS federated
+			FROM registries
 	`
 	err = db.db.Get(&metrics.MethodDistribution, query)
 	if err != nil {
@@ -272,8 +284,8 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 	}
 	query = `
 		SELECT identity_provider, COUNT(*) AS amount
-		FROM registry_entries
-		WHERE identity_provider IS NOT NULL
+		FROM registries
+		WHERE identity_provider = 'GOOGLE'
 		GROUP BY identity_provider
 	`
 	if err := db.db.Select(&federatedProviders, query); err != nil {
@@ -287,4 +299,19 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 	}
 
 	return &metrics, nil
+}
+
+func (db *MetricsPostgresDB) GetLocationMetrics() (*models.LocationMetrics, error) {
+	var locationMetrics models.LocationMetrics
+	query := `
+		SELECT location AS country, COUNT(*) AS amount
+		FROM users
+		GROUP BY location
+	`
+
+	if err := db.db.Select(&locationMetrics.Locations, query); err != nil {
+		return nil, fmt.Errorf("error getting location metrics: %w", err)
+	}
+
+	return &locationMetrics, nil
 }

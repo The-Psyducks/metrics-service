@@ -21,3 +21,12 @@ type RegistrationSummaryMetrics struct {
 	MethodDistribution        MethodDistribution `json:"method_distribution"`
 	FederatedProviders        map[string]int     `json:"federated_providers" db:"federated_providers"`
 }
+
+type LocationMetric struct {
+	Country string `json:"country" db:"country"`
+	Amount  int    `json:"amount" db:"amount"`
+}
+
+type LocationMetrics struct {
+	Locations []LocationMetric `json:"locations"`
+}

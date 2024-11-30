@@ -26,19 +26,6 @@ func (s *MetricsService) RecordLoginAttempt(loginAttempt models.LoginAttempt) *a
 	return nil
 }
 
-func (s *MetricsService) GetLoginMetrics(isAdmin bool) (*models.LoginSummaryMetrics, error) {
-
-	if !isAdmin && os.Getenv("ENV") == "HEROKU" {
-		return nil, app_errors.NewAppError(http.StatusForbidden, app_errors.UserIsNotAdmin, app_errors.ErrUserIsNotAdmin)
-	}
-
-	metrics, err := s.database.GetLoginSummaryMetrics()
-	if err != nil {
-		return nil, app_errors.NewAppError(http.StatusInternalServerError, app_errors.InternalServerError, err)
-	}
-	return metrics, nil
-}
-
 func (s *MetricsService) RecordUserBlocked(userBlocked models.UserBlocked) *app_errors.AppError {
 	err := s.database.RegisterUserBlocked(userBlocked)
 	if err != nil {
@@ -75,4 +62,40 @@ func (s *MetricsService) RecordNewUser(newUser models.NewUser) *app_errors.AppEr
 			err))
 	}
 	return nil
+}
+
+func (s *MetricsService) GetLoginMetrics(isAdmin bool) (*models.LoginSummaryMetrics, error) {
+
+	if !isAdmin && os.Getenv("ENV") == "HEROKU" {
+		return nil, app_errors.NewAppError(http.StatusForbidden, app_errors.UserIsNotAdmin, app_errors.ErrUserIsNotAdmin)
+	}
+
+	metrics, err := s.database.GetLoginSummaryMetrics()
+	if err != nil {
+		return nil, app_errors.NewAppError(http.StatusInternalServerError, app_errors.InternalServerError, err)
+	}
+	return metrics, nil
+}
+
+func (s *MetricsService) GetRegistryMetrics(admin bool) (*models.RegistrationSummaryMetrics, error) {
+	if !admin && os.Getenv("ENV") == "HEROKU" {
+		return nil, app_errors.NewAppError(http.StatusForbidden, app_errors.UserIsNotAdmin, app_errors.ErrUserIsNotAdmin)
+	}
+	metrics, err := s.database.GetRegistrySummaryMetrics()
+	if err != nil {
+		return nil, app_errors.NewAppError(http.StatusInternalServerError, app_errors.InternalServerError, err)
+	}
+	return metrics, nil
+
+}
+
+func (s *MetricsService) GetLocationMetrics(admin bool) (*models.LocationMetrics, error) {
+	if !admin && os.Getenv("ENV") == "HEROKU" {
+		return nil, app_errors.NewAppError(http.StatusForbidden, app_errors.UserIsNotAdmin, app_errors.ErrUserIsNotAdmin)
+	}
+	metrics, err := s.database.GetLocationMetrics()
+	if err != nil {
+		return nil, app_errors.NewAppError(http.StatusInternalServerError, app_errors.InternalServerError, err)
+	}
+	return metrics, nil
 }

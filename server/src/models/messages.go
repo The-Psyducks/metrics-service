@@ -53,5 +53,5 @@ type NewUser struct {
 	UserId         string `json:"user_id"`
 	Location       string `json:"location"`
 	TimeStamp      string `json:"timestamp"`
-	RegistrationId string `json:"registration_id"`
+	RegistrationId string `json:"old_registration_id"`
 }

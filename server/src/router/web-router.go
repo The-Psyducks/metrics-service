@@ -77,6 +77,9 @@ func CreateRouter() (*Router, error) {
 	private.Use(middleware.AuthMiddleware())
 	{
 		private.GET("/metrics/login", webController.GetLoginMetrics)
+		private.GET("/metrics/registry", webController.GetRegistryMetrics)
+		private.GET("/metrics/location", webController.GetLocationMetrics)
+		private.GET("/metrics/blocked", webController.GetBlockedMetrics)
 	}
 
 	return r, nil
