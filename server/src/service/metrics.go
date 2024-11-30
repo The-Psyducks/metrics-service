@@ -99,3 +99,15 @@ func (s *MetricsService) GetLocationMetrics(admin bool) (*models.LocationMetrics
 	}
 	return metrics, nil
 }
+
+func (s *MetricsService) GetBlockedMetrics(admin bool) (*models.UsersBlockedMetrics, error) {
+	if !admin && os.Getenv("ENV") == "HEROKU" {
+		return nil, app_errors.NewAppError(http.StatusForbidden, app_errors.UserIsNotAdmin, app_errors.ErrUserIsNotAdmin)
+	}
+
+	metrics, err := s.database.GetBlockedMetrics()
+	if err != nil {
+		return nil, app_errors.NewAppError(http.StatusInternalServerError, app_errors.InternalServerError, err)
+	}
+	return metrics, nil
+}

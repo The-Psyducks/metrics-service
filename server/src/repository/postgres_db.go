@@ -4,10 +4,12 @@ import (
 	//"database/sql"
 	//"errors"
 	"fmt"
+	"github.com/lib/pq"
 	"github.com/the-psyducks/metrics-service/src/config"
 	"github.com/the-psyducks/metrics-service/src/models"
 	"os"
 	"testing"
+	"time"
 
 	//uuid "github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -36,7 +38,7 @@ func createTables(db *sqlx.DB) error {
 
 		CREATE TABLE IF NOT EXISTS login_metrics (
 			user_id UUID NOT NULL,
-			login_time VARCHAR(255),
+			login_time TIMESTAMPTZ NOT NULL DEFAULT now(),
 			succesfull BOOLEAN NOT NULL,
 			identity_provider VARCHAR(255) DEFAULT NULL,
 			PRIMARY KEY (user_id, login_time)
@@ -50,8 +52,8 @@ func createTables(db *sqlx.DB) error {
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 			user_id UUID NOT NULL,
 			reason TEXT DEFAULT NULL,
-			blocked_at VARCHAR(255),
-			unblocked_at VARCHAR(255) DEFAULT NULL,
+			blocked_at TIMESTAMPTZ,
+			unblocked_at TIMESTAMPTZ DEFAULT NULL,
 			CONSTRAINT users_blocks_unique_block UNIQUE (user_id, blocked_at)
 			);
 		`
@@ -61,18 +63,18 @@ func createTables(db *sqlx.DB) error {
 
 		CREATE TABLE IF NOT EXISTS registries (
 			registration_id VARCHAR(255) PRIMARY KEY,
-			created_at VARCHAR(255),
-			deleted_at VARCHAR(255) default NULL,			
+			created_at TIMESTAMPTZ,
+			deleted_at TIMESTAMPTZ default NULL,			
 			identity_provider VARCHAR(255) DEFAULT NULL
 			
 			);
 		`
 
-	schemaUsers := `DROP TABLE IF EXISTS users
+	schemaUsers := `DROP TABLE IF EXISTS users;
 					CREATE TABLE IF NOT EXISTS users (
 					    						user_id UUID PRIMARY KEY,
 					    						location VARCHAR(255),
-					    						created_at VARCHAR(255)`
+					    						created_at TIMESTAMPTZ)`
 
 	if _, err := db.Exec(schemaLoginMetrics); err != nil {
 		return fmt.Errorf("failed to create logins table: %w", err)
@@ -155,8 +157,12 @@ func (db *MetricsPostgresDB) RegisterLoginAttempt(loginAttempt models.LoginAttem
 		INSERT INTO login_metrics (user_id, login_time, succesfull, identity_provider)
 		VALUES ($1, $2, $3, $4)
 	`
+	timestamp, err := time.Parse(time.RFC3339, loginAttempt.Timestamp)
+	if err != nil {
+		return fmt.Errorf("failed to parse timestamp: %w", err)
+	}
 
-	_, err := db.db.Exec(query, loginAttempt.UserId, loginAttempt.Timestamp, loginAttempt.WasSuccessful, loginAttempt.Provider)
+	_, err = db.db.Exec(query, loginAttempt.UserId, timestamp, loginAttempt.WasSuccessful, loginAttempt.Provider)
 
 	if err != nil {
 		return fmt.Errorf("failed to register login: %w", err)
@@ -197,10 +203,15 @@ func (db *MetricsPostgresDB) RegisterNewUser(newUser models.NewUser) error {
 	query := `UPDATE registries SET deleted_at  = $1
 							  WHERE registration_id = $2`
 
+	_, err := db.db.Exec(query, newUser.TimeStamp, newUser.RegistrationId)
+	if err != nil {
+		return fmt.Errorf("failed to create registry entry: %w", err)
+	}
+
 	query = `INSERT INTO users (user_id, location, created_at)
     			 VALUES ($1, $2, $3)`
 
-	_, err := db.db.Exec(query, newUser.TimeStamp, newUser.RegistrationId, newUser)
+	_, err = db.db.Exec(query, newUser.UserId, newUser.Location, newUser.TimeStamp)
 	if err != nil {
 		return fmt.Errorf("failed to create registry entry: %w", err)
 	}
@@ -314,4 +325,30 @@ func (db *MetricsPostgresDB) GetLocationMetrics() (*models.LocationMetrics, erro
 	}
 
 	return &locationMetrics, nil
+}
+
+func (db *MetricsPostgresDB) GetBlockedMetrics() (*models.UsersBlockedMetrics, error) {
+	var usersBlockedMetrics models.UsersBlockedMetrics
+	query := `
+        SELECT 
+            COUNT(*) AS total_users_blocked,
+            COALESCE(SUM(CASE WHEN unblocked_at IS NULL THEN 1 ELSE 0 END), 0) AS currently_blocked,
+            COALESCE(AVG(EXTRACT(EPOCH FROM unblocked_at - blocked_at) / 86400), 0) AS average_block_time_in_days
+        FROM users_blocks
+    `
+
+	if err := db.db.Get(&usersBlockedMetrics, query); err != nil {
+		return nil, fmt.Errorf("error getting users blocked metrics: %w", err)
+	}
+
+	var reasons pq.StringArray
+	query = `SELECT ARRAY(SELECT DISTINCT reason FROM users_blocks WHERE reason IS NOT NULL)`
+
+	if err := db.db.Get(&reasons, query); err != nil {
+		return nil, fmt.Errorf("error getting reasons: %w", err)
+	}
+
+	usersBlockedMetrics.Reasons = reasons
+
+	return &usersBlockedMetrics, nil
 }

@@ -55,6 +55,18 @@ func (c *WebController) GetLocationMetrics(context *gin.Context) {
 	context.JSON(http.StatusOK, metrics)
 }
 
+func (c *WebController) GetBlockedMetrics(context *gin.Context) {
+	userSessionIsAdmin := context.GetBool("session_user_admin")
+	metrics, err := c.service.GetBlockedMetrics(userSessionIsAdmin)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("error getting blocked metrics: %v", err))
+		_ = context.Error(err)
+		return
+	}
+
+	context.JSON(http.StatusOK, metrics)
+}
+
 func NewWebController(db *repository.MetricsPostgresDB) *WebController {
 	return &WebController{db: db, service: service.NewMetricsService(db)}
 }

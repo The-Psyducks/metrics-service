@@ -1,8 +1,8 @@
 package models
 
 type MethodDistribution struct {
-	EmailAndPassword int `json:"email_and_password" db:"email"`
-	Federated        int `json:"federated" db:"federated"`
+	Internal  int `json:"internal" db:"email"`
+	Federated int `json:"federated" db:"federated"`
 }
 
 type LoginSummaryMetrics struct {
@@ -29,4 +29,11 @@ type LocationMetric struct {
 
 type LocationMetrics struct {
 	Locations []LocationMetric `json:"locations"`
+}
+
+type UsersBlockedMetrics struct {
+	TotalUsersBlocked    int      `json:"total_users_blocked" db:"total_users_blocked"`
+	CurrentlyBlocked     int      `json:"currently_blocked" db:"currently_blocked"`
+	AverageBlockTimeDays float64  `json:"average_block_time_in_days" db:"average_block_time_in_days"`
+	Reasons              []string `json:"reasons" db:"reasons"`
 }
