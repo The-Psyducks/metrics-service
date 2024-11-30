@@ -14,16 +14,17 @@ import (
 	"syscall"
 )
 
-const NewUserType = "NEW_USER"
-const NewRegistryType = "NEW_REGISTRY"
-const UserBlockedType = "USER_BLOCKED"
 const LoginAttemptType = "LOGIN_ATTEMPT"
+const UserBlockedType = "USER_BLOCKED"
+const UserUnblockedType = "USER_UNBLOCKED"
+const NewRegistryType = "NEW_REGISTRY"
+const NewUserType = "NEW_USER"
 
 type AmpqRouter struct {
 	messagesChan   <-chan amqp.Delivery
 	metricsService *service.MetricsService
-	AmqpChannel	*amqp.Channel
-	AmqpConn	*amqp.Connection
+	AmqpChannel    *amqp.Channel
+	AmqpConn       *amqp.Connection
 }
 
 func NewRabbitRouter() (*AmpqRouter, error) {
@@ -66,8 +67,8 @@ func NewRabbitRouter() (*AmpqRouter, error) {
 	return &AmpqRouter{
 		messagesChan:   messagesChan,
 		metricsService: metricsService,
-		AmqpChannel: channel,
-		AmqpConn: conn,
+		AmqpChannel:    channel,
+		AmqpConn:       conn,
 	}, nil
 }
 
@@ -85,22 +86,60 @@ func (r *AmpqRouter) Run() {
 				var event models.QueueLoginAttempt
 				if err := json.Unmarshal(message.Body, &event); err != nil {
 					slog.Warn(fmt.Sprintf("error unmarshalling login attempt message: %v", err))
+					break
 				}
 				slog.Info(fmt.Sprintf("received login attempt: %v", event.Message))
 				if err := r.metricsService.RecordLoginAttempt(event.Message); err != nil {
 					slog.Error(fmt.Sprintf("error recording login attempt: %v", err))
-					return
+					break
 				}
 			case UserBlockedType:
-				fallthrough
+				var event models.QueueUserBlocked
+				if err := json.Unmarshal(message.Body, &event); err != nil {
+					slog.Warn(fmt.Sprintf("error unmarshalling user blocked message: %v", err))
+					break
+				}
+				slog.Info(fmt.Sprintf("received user blocked: %v", event.Message))
+				if err := r.metricsService.RecordUserBlocked(event.Message); err != nil {
+					slog.Error(fmt.Sprintf("error recording user blocked: %v", err))
+					break
+				}
+			case UserUnblockedType:
+				var event models.QueueUserUnblocked
+				if err := json.Unmarshal(message.Body, &event); err != nil {
+					slog.Warn(fmt.Sprintf("error unmarshalling user unblocked message: %v", err))
+					break
+				}
+				slog.Info(fmt.Sprintf("received user unblocked: %v", event.Message))
+				if err := r.metricsService.RecordUserUnblocked(event.Message); err != nil {
+					slog.Error(fmt.Sprintf("error recording user unblocked: %v", err))
+					break
+				}
 			case NewRegistryType:
-				fallthrough
+				var event models.QueueNewRegistry
+				if err := json.Unmarshal(message.Body, &event); err != nil {
+					slog.Warn(fmt.Sprintf("error unmarshalling new registry message: %v", err))
+					break
+				}
+				slog.Info(fmt.Sprintf("received new registry: %v", event.Message))
+				if err := r.metricsService.RecordNewRegistry(event.Message); err != nil {
+					slog.Error(fmt.Sprintf("error recording new registry: %v", err))
+					break
+				}
 			case NewUserType:
-				slog.Warn(fmt.Sprintf("message type %s not implemented", queueMessage.Type))
+				var event models.QueueNewUser
+				if err := json.Unmarshal(message.Body, &event); err != nil {
+					slog.Warn(fmt.Sprintf("error unmarshalling new user message: %v", err))
+					break
+				}
+				slog.Info(fmt.Sprintf("received new user: %v", event.Message))
+				if err := r.metricsService.RecordNewUser(event.Message); err != nil {
+					slog.Error(fmt.Sprintf("error recording new user: %v", err))
+					break
+				}
 			default:
 				slog.Warn(fmt.Sprintf("message type %s not recognized", queueMessage.Type))
 			}
 		}
 	}()
 }
-
