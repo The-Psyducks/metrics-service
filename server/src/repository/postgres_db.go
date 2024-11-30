@@ -158,6 +158,44 @@ func (db *MetricsPostgresDB) RegisterLoginAttempt(loginAttempt models.LoginAttem
 	return nil
 }
 
+func (db *MetricsPostgresDB) RegisterUserBlocked(userBlocked models.UserBlocked) error {
+	query := `INSERT INTO users_blocks (user_id, blocked_at, reason) VALUES ($1, $2, $3)`
+	_, err := db.db.Exec(query, userBlocked.UserId, userBlocked.Timestamp, userBlocked.Reason)
+	if err != nil {
+		return fmt.Errorf("error blocking user: %w", err)
+	}
+	return nil
+}
+
+func (db *MetricsPostgresDB) RegisterUserUnblocked(userUnblocked models.UserUnblocked) error {
+	query := `UPDATE users_blocks SET unblocked_at = $1 
+              WHERE user_id = $2 AND unblocked_at IS NULL`
+	_, err := db.db.Exec(query, userUnblocked.Timestamp, userUnblocked.UserId)
+	if err != nil {
+		return fmt.Errorf("error unblocking user: %w", err)
+	}
+	return nil
+}
+
+func (db *MetricsPostgresDB) RegisterNewRegistry(registry models.NewRegistry) error {
+
+	_, err := db.db.Exec("INSERT INTO registry_entries (registration_id, created_at, identity_provider) VALUES ($1, $2, $3)", registry.RegistrationId, registry.TimeStamp, registry.Provider)
+	if err != nil {
+		return fmt.Errorf("failed to create registry entry: %w", err)
+	}
+	return nil
+}
+
+func (db *MetricsPostgresDB) RegisterNewUser(newUser models.NewUser) error {
+	query := `UPDATE registry_entries SET deleted_at  = $1
+							  WHERE registration_id = $2`
+	_, err := db.db.Exec(query, newUser.TimeStamp, newUser.RegistrationId, newUser)
+	if err != nil {
+		return fmt.Errorf("failed to create registry entry: %w", err)
+	}
+	return nil
+}
+
 func (db *MetricsPostgresDB) GetLoginSummaryMetrics() (*models.LoginSummaryMetrics, error) {
 	var loginSummary models.LoginSummaryMetrics
 
@@ -205,34 +243,6 @@ func (db *MetricsPostgresDB) GetLoginSummaryMetrics() (*models.LoginSummaryMetri
 	return &loginSummary, nil
 }
 
-func (db *MetricsPostgresDB) RegisterUserBlocked(userBlocked models.UserBlocked) error {
-	query := `INSERT INTO users_blocks (user_id, blocked_at, reason) VALUES ($1, $2, $3)`
-	_, err := db.db.Exec(query, userBlocked.UserId, userBlocked.Timestamp, userBlocked.Reason)
-	if err != nil {
-		return fmt.Errorf("error blocking user: %w", err)
-	}
-	return nil
-}
-
-func (db *MetricsPostgresDB) RegisterUserUnblocked(userUnblocked models.UserUnblocked) error {
-	query := `UPDATE users_blocks SET unblocked_at = $1 
-              WHERE user_id = $2 AND unblocked_at IS NULL`
-	_, err := db.db.Exec(query, userUnblocked.Timestamp, userUnblocked.UserId)
-	if err != nil {
-		return fmt.Errorf("error unblocking user: %w", err)
-	}
-	return nil
-}
-
-func (db *MetricsPostgresDB) RegisterNewRegistry(registry models.NewRegistry) error {
-
-	_, err := db.db.Exec("INSERT INTO registry_entries (registration_id, created_at, identity_provider) VALUES ($1, $2, $3)", registry.RegistrationId, registry.TimeStamp, registry.Provider)
-	if err != nil {
-		return fmt.Errorf("failed to create registry entry: %w", err)
-	}
-	return nil
-}
-
 func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSummaryMetrics, error) {
 	var metrics models.RegistrationSummaryMetrics
 
@@ -278,14 +288,4 @@ func (db *MetricsPostgresDB) GetRegistrySummaryMetrics() (*models.RegistrationSu
 	}
 
 	return &metrics, nil
-}
-
-func (db *MetricsPostgresDB) RegisterNewUser(newUser models.NewUser) error {
-	query := `UPDATE registry_entries SET deleted_at  = $1
-							  WHERE registration_id = $2`
-	_, err := db.db.Exec(query, newUser.TimeStamp, newUser.RegistrationId, newUser)
-	if err != nil {
-		return fmt.Errorf("failed to create registry entry: %w", err)
-	}
-	return nil
 }
