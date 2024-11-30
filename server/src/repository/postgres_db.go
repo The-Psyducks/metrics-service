@@ -34,7 +34,7 @@ func CreateMetricsPostgresDB(db *sqlx.DB) (*MetricsPostgresDB, error) {
 func createTables(db *sqlx.DB) error {
 
 	schemaLoginMetrics := `
-		DROP TABLE IF EXISTS login_metrics;
+		--DROP TABLE IF EXISTS login_metrics;
 
 		CREATE TABLE IF NOT EXISTS login_metrics (
 			user_id UUID NOT NULL,
@@ -46,7 +46,7 @@ func createTables(db *sqlx.DB) error {
 		`
 
 	schemaUsersBlocked := `
-		DROP TABLE IF EXISTS users_blocks;
+		--DROP TABLE IF EXISTS users_blocks;
 
 		CREATE TABLE IF NOT EXISTS users_blocks (
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -59,7 +59,7 @@ func createTables(db *sqlx.DB) error {
 		`
 
 	schemaRegistries := `
-		DROP TABLE IF EXISTS registries;
+		--DROP TABLE IF EXISTS registries;
 
 		CREATE TABLE IF NOT EXISTS registries (
 			registration_id VARCHAR(255) PRIMARY KEY,
@@ -70,7 +70,7 @@ func createTables(db *sqlx.DB) error {
 			);
 		`
 
-	schemaUsers := `DROP TABLE IF EXISTS users;
+	schemaUsers := `--DROP TABLE IF EXISTS users;
 					CREATE TABLE IF NOT EXISTS users (
 					    						user_id UUID PRIMARY KEY,
 					    						location VARCHAR(255),
