@@ -323,7 +323,9 @@ func (db *MetricsPostgresDB) GetLocationMetrics() (*models.LocationMetrics, erro
 	if err := db.db.Select(&locationMetrics.Locations, query); err != nil {
 		return nil, fmt.Errorf("error getting location metrics: %w", err)
 	}
-
+	if locationMetrics.Locations == nil {
+		locationMetrics.Locations = []models.LocationMetric{}
+	}
 	return &locationMetrics, nil
 }
 
