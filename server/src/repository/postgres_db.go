@@ -54,7 +54,6 @@ func createTables(db *sqlx.DB) error {
 			blocked_at VARCHAR(255),
 			unblocked_at VARCHAR(255) DEFAULT NULL,
 			CONSTRAINT users_blocks_unique_block UNIQUE (user_id, blocked_at),
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 			);
 		`
 
